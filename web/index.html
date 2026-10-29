@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RFTP Studio - Reliable File Transfer over UDP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+<style>
+:root{
+  --bg:#080d1c; --bg2:#0e1630; --panel:#111a36; --panel2:#16224a; --line:#26346a;
+  --text:#e9edff; --mut:#8e9bcc; --cy:#31d0ff; --gr:#3ddc97; --am:#ffb84d; --rd:#ff5d73; --pu:#a78bfa;
+}
+*{box-sizing:border-box}
+html{background-color:#080d1c}
+html,body{margin:0;min-height:100vh;background:radial-gradient(1200px 700px at 15% -10%,#17265a 0%,var(--bg) 55%) fixed;color:var(--text);
+  font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(22,34,74,.7),rgba(8,13,28,.2));position:sticky;top:0;z-index:5;backdrop-filter:blur(6px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.3px}
+.brand .logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:19px;
+  background:linear-gradient(135deg,var(--cy),var(--pu));box-shadow:0 0 18px rgba(49,208,255,.45)}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--mut);letter-spacing:.2px}
+nav{display:flex;gap:6px;margin-left:12px;flex-wrap:wrap}
+nav button{background:transparent;border:1px solid transparent;color:var(--mut);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:13px}
+nav button:hover{color:var(--text)}
+nav button.on{background:var(--panel2);border-color:var(--line);color:var(--text);box-shadow:0 0 0 1px rgba(49,208,255,.25) inset}
+.badges{margin-left:auto;display:flex;gap:8px}
+.badge{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.badge.ok{color:var(--gr);border-color:rgba(61,220,151,.4)} .badge.no{color:var(--am);border-color:rgba(255,184,77,.4)}
+main{padding:18px 22px 40px;max-width:1500px;margin:auto}
+.tab{display:none} .tab.on{display:block}
+.layout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:980px){.layout{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--panel),#0f1731);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card h3{margin:0 0 12px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mut)}
+.ctl{margin-bottom:13px}
+.ctl label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);margin-bottom:5px}
+.ctl label b{color:var(--text);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--cy)}
+select,input[type=number]{width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font:inherit}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:13px}
+.seg button{padding:9px 6px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--mut);cursor:pointer;font-weight:700;font-size:12.5px}
+.seg button.on{color:#04101c;background:linear-gradient(135deg,var(--cy),#7ce7ff);border-color:transparent}
+.seg button.on.plain{background:linear-gradient(135deg,var(--rd),#ff9aa8)}
+.btn{display:block;width:100%;padding:11px;border-radius:11px;border:0;cursor:pointer;font-weight:800;font-size:14px;color:#04101c;
+  background:linear-gradient(135deg,var(--gr),#9af2c8);margin-top:8px;transition:.15s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)} .btn:disabled{opacity:.5;cursor:wait;transform:none}
+.btn.alt{background:linear-gradient(135deg,var(--am),#ffd9a0)} .btn.ghost{background:var(--bg2);color:var(--text);border:1px solid var(--line)}
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:12px;text-align:center;cursor:pointer;color:var(--mut);margin-bottom:10px;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--cy);color:var(--text);background:rgba(49,208,255,.06)}
+.drop b{color:var(--text)}
+.hint{font-size:11.5px;color:var(--mut);margin-top:8px}
+.stage{padding:0;overflow:hidden}
+canvas.viz{display:block;width:100%;height:330px}
+.stagebar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line);background:rgba(8,13,28,.5)}
+.prog{flex:1;height:10px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--gr));transition:width .15s}
+.stagebar .pct{min-width:48px;text-align:right;font-weight:800}
+.mini{background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700}
+.mini:hover{border-color:var(--cy)}
+.spd{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)} .spd input{width:110px}
+.verdict{margin:12px 0 0;padding:12px 16px;border-radius:12px;font-weight:700;display:none;align-items:center;gap:10px}
+.verdict.ok{display:flex;background:rgba(61,220,151,.12);border:1px solid rgba(61,220,151,.5);color:var(--gr)}
+.verdict.bad{display:flex;background:rgba(255,93,115,.12);border:1px solid rgba(255,93,115,.5);color:var(--rd)}
+.verdict small{font-weight:500;color:var(--text);opacity:.85;margin-left:auto}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+@media(max-width:700px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:linear-gradient(180deg,var(--panel),#0f1731);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.tile span{font-size:11px;color:var(--mut);letter-spacing:.8px;text-transform:uppercase}
+.tile b{display:block;font-size:22px;margin-top:2px}
+.tile.cy b{color:var(--cy)} .tile.am b{color:var(--am)} .tile.rd b{color:var(--rd)} .tile.gr b{color:var(--gr)} .tile.pu b{color:var(--pu)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px} @media(max-width:900px){.row2{grid-template-columns:1fr}}
+.grid{display:flex;flex-wrap:wrap;gap:3px;max-height:170px;overflow:auto}
+.cell{width:13px;height:13px;border-radius:3px;background:#1d2850;transition:background .2s,transform .2s}
+.cell.sent{background:var(--cy)} .cell.acked{background:var(--gr)} .cell.retx{background:var(--am)}
+.cell.got{background:#52a8ff} .cell.lost{background:var(--rd);transform:scale(.8)} .cell.wait{background:var(--am);opacity:.55}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--mut);margin-top:9px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.log{height:170px;overflow:auto;font-size:12px;line-height:1.55;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.log div.d{color:var(--cy)} .log div.a{color:var(--gr)} .log div.l{color:var(--rd)} .log div.t{color:var(--am)} .log div.c{color:var(--pu)} .log div.m{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line)} th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:11px;letter-spacing:.8px;text-transform:uppercase}
+.pill{padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800}
+.pill.y{background:rgba(61,220,151,.15);color:var(--gr)} .pill.n{background:rgba(255,93,115,.15);color:var(--rd)}
+pre.trace{margin:0;max-height:210px;overflow:auto;font-size:11.5px;color:#b7c4f5;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media(max-width:900px){.charts{grid-template-columns:1fr}}
+canvas.chart{width:100%;height:300px;display:block}
+.flow{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+.box{flex:1;min-width:210px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel)}
+.box h4{margin:0 0 8px;color:var(--cy)} .box ol{margin:0;padding-left:18px;color:var(--text)} .box li{margin:3px 0}
+.arrow{display:grid;place-items:center;color:var(--mut);font-size:22px}
+.pk{display:flex;border-radius:10px;overflow:hidden;border:1px solid var(--line);font-weight:700;text-align:center;font-size:12px;margin:8px 0 4px}
+.pk div{padding:12px 6px;color:#04101c} .pk small{display:block;font-weight:500;opacity:.8}
+.steps{counter-reset:s;padding:0;list-style:none} .steps li{counter-increment:s;margin:9px 0;padding-left:38px;position:relative}
+.steps li:before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--cy);color:var(--cy);display:grid;place-items:center;font-weight:800;font-size:12px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(4,16,28,.3);border-top-color:#04101c;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.note{padding:10px 14px;border-radius:10px;background:rgba(255,184,77,.1);border:1px solid rgba(255,184,77,.4);color:var(--am);font-size:12.5px;margin-bottom:12px}
+.cmp{display:none;margin-top:12px;grid-template-columns:1fr 1fr;gap:12px} .cmp.on{display:grid}
+.cmp div{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel)} .cmp b{font-size:20px}
+
+.insp{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);display:none}
+.insp-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:10px;flex-wrap:wrap}
+.insp-h b{font-size:11px;letter-spacing:1.3px;color:var(--mut);text-transform:uppercase}
+.insp-h small{color:var(--mut);font-size:11.5px}
+.hexrow{display:flex;flex-wrap:wrap;gap:3px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.hx{padding:2px 5px;border-radius:4px;background:#1b2552;color:#b7c4f5}
+.hx.t{background:rgba(167,139,250,.28);color:#d4c7ff}.hx.f{background:rgba(255,184,77,.28);color:#ffd9a0}
+.hx.s{background:rgba(49,208,255,.24);color:#aeeaff}.hx.c{background:rgba(61,220,151,.24);color:#a6f4cf}
+.hx.x{background:var(--rd);color:#fff}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fchip{padding:4px 11px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--mut)}.fchip b{color:var(--text)}
+.statb{margin-top:10px;font-weight:700;font-size:13px}.statb.ok{color:var(--gr)}.statb.bad{color:var(--rd)}
+.keyl{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--mut);margin:10px 0 0}
+.keyl i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+pre.code{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.6;color:#c9d2f5;overflow:auto;white-space:pre}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.chip span{display:block;font-size:10.5px;color:var(--mut);letter-spacing:.9px;text-transform:uppercase}
+.chip b{font-size:14.5px}
+.samples{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.samples button{padding:7px 13px;border-radius:99px;border:1px solid var(--line);background:var(--bg2);color:var(--mut);cursor:pointer;font-weight:700;font-size:12.5px}
+.samples button.on{background:var(--panel2);color:var(--text);border-color:var(--cy)}
+.samples button.badp.on{border-color:var(--rd);color:var(--rd)}
+.crcbox{margin-top:12px;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:13px}
+.crcbox.ok{border-color:rgba(61,220,151,.5)}.crcbox.bad{border-color:rgba(255,93,115,.55)}
+.fsm svg{width:100%;height:auto;display:block}
+.fsm text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.ftab th,.ftab td{text-align:left;vertical-align:top}.ftab td:first-child{white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">📡</div><div>RFTP Studio<small>Reliable File Transfer Protocol over UDP</small></div></div>
+  <nav id="nav">
+    <button data-t="live" class="on">Live Transfer</button>
+    <button data-t="proto">RFTP Protocol</button>
+    <button data-t="ns2">NS2 Simulation</button>
+    <button data-t="ana">Analysis</button>
+    <button data-t="how">How it works</button>
+  </nav>
+  <div class="badges"><span class="badge" id="bNs">NS2 …</span><span class="badge ok mono" id="bPy">python</span></div>
+</header>
+
+<main>
+<!-- ============================ LIVE TRANSFER ============================ -->
+<section class="tab on" id="t-live">
+ <div class="layout">
+  <div>
+   <div class="card">
+    <h3>1 · File</h3>
+    <div class="drop" id="drop"><div>📁 <b>Drop a file</b> or click to choose</div><div class="mono" id="fileLbl" style="margin-top:4px;font-size:12px">no file – a random sample will be sent</div></div>
+    <input type="file" id="file" hidden>
+    <div class="ctl" id="sampleCtl"><label>Sample size <b id="vSample">40 KB</b></label><input type="range" id="sample" min="5" max="300" value="40"></div>
+    <h3 style="margin-top:6px">2 · Protocol</h3>
+    <div class="seg"><button id="mRel" class="on">RFTP (reliable)</button><button id="mPlain" class="plain">Plain UDP</button></div>
+    <h3>3 · Network conditions</h3>
+    <div class="ctl"><label>Packet loss <b id="vLoss">20%</b></label><input type="range" id="loss" min="0" max="60" value="20"></div>
+    <div class="ctl"><label>Corruption <b id="vCorr">0%</b></label><input type="range" id="corr" min="0" max="30" value="0"></div>
+    <div class="ctl"><label>Max delay <b id="vDelay">0 ms</b></label><input type="range" id="delay" min="0" max="40" value="0"></div>
+    <div class="ctl"><label>ACK timeout <b id="vTo">30 ms</b></label><input type="range" id="to" min="10" max="300" value="30"></div>
+    <div class="ctl"><label>Chunk size</label><select id="chunk"><option>256</option><option>512</option><option selected>1024</option><option>1400</option></select></div>
+    <button class="btn" id="run">▶ Run transfer</button>
+    <button class="btn alt" id="cmp">⚔ Compare: Plain UDP vs RFTP</button>
+    <button class="btn ghost" id="toNs">🔬 Simulate this same transfer in NS2</button>
+    <div class="hint">Every transfer is a <b>real UDP transfer</b> between a client and a server socket on this machine. The animation replays the actual packet log.</div>
+   </div>
+  </div>
+  <div>
+   <div class="card stage">
+     <div id="livePanel"></div>
+   </div>
+   <div class="cmp" id="cmpStrip"></div>
+   <div class="card" style="margin-top:12px">
+     <h3>Run history</h3>
+     <table id="hist"><thead><tr><th>Protocol</th><th>Loss</th><th>Corrupt</th><th>Packets</th><th>Retrans.</th><th>Time</th><th>File intact</th></tr></thead><tbody></tbody></table>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- ============================ PROTOCOL ============================ -->
+<section class="tab" id="t-proto">
+  <div class="card">
+    <h3>RFTP - Reliable File Transfer Protocol</h3>
+    <div style="font-size:15px;max-width:1000px;line-height:1.6">RFTP is the <b>application-layer protocol designed in this project</b>. It runs inside UDP datagrams and adds what UDP lacks: sequence numbers, acknowledgements, timeout-and-retransmission, duplicate handling and error detection (CRC-32 per packet, SHA-256 for the whole file). Everything on this page is generated from the real protocol code (<span class="mono">rftp_common.py</span>, <span class="mono">rftp_client.py</span>, <span class="mono">rftp_server.py</span>).</div>
+    <div class="chips" id="pChips" style="margin-top:16px"></div>
+  </div>
+
+  <div class="row2" style="grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)">
+    <div class="card">
+      <h3>Packet inspector - real RFTP packets</h3>
+      <div class="samples" id="pSamples"></div>
+      <div class="hexrow" id="pHex"></div>
+      <div class="keyl"><span><i style="background:rgba(167,139,250,.6)"></i>type (1 B)</span><span><i style="background:rgba(255,184,77,.6)"></i>flags (1 B)</span><span><i style="background:rgba(49,208,255,.6)"></i>sequence no. (4 B)</span><span><i style="background:rgba(61,220,151,.6)"></i>CRC-32 (4 B)</span><span><i style="background:#1b2552"></i>data</span><span><i style="background:var(--rd)"></i>corrupted byte</span></div>
+      <div class="fchips" id="pFields"></div>
+      <div style="margin-top:10px;font-size:13px;color:var(--mut)" id="pDesc"></div>
+      <div class="crcbox" id="pCrc"></div>
+    </div>
+    <div class="card">
+      <h3>Header layout (10 bytes)</h3>
+      <table class="ftab"><thead><tr><th>Bytes</th><th>Field</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td class="mono">0</td><td><b>Type</b></td><td>1 = META, 2 = DATA, 3 = ACK</td></tr>
+        <tr><td class="mono">1</td><td><b>Flags</b></td><td>bit 0 = End-Of-File (last DATA packet)</td></tr>
+        <tr><td class="mono">2 - 5</td><td><b>Sequence no.</b></td><td>0 = META, 1..N = DATA, ACK echoes it</td></tr>
+        <tr><td class="mono">6 - 9</td><td><b>CRC-32</b></td><td>over type + flags + seq + data</td></tr>
+        <tr><td class="mono">10 ...</td><td><b>Data</b></td><td>file chunk (up to 1024 B), JSON for META, empty for ACK</td></tr>
+      </tbody></table>
+      <h3 style="margin-top:18px">How a packet is checked</h3>
+      <ol style="margin:0;padding-left:18px;line-height:1.75;color:var(--text)">
+        <li>Receiver splits the 10-byte header from the data.</li>
+        <li>It recomputes CRC-32 over type + flags + seq + data.</li>
+        <li><b style="color:var(--gr)">Match:</b> packet is accepted and acknowledged.</li>
+        <li><b style="color:var(--rd)">Mismatch:</b> packet is discarded with no ACK, so the sender's timer expires and it retransmits.</li>
+      </ol>
+      <div class="hint">The CRC box on the left is computed live in your browser with the same CRC-32 algorithm as the Python code.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>Protocol state machines (stop-and-wait ARQ, window size 1)</h3>
+    <div class="row2" style="margin-top:0">
+      <div class="fsm"><div style="font-weight:800;color:var(--cy);margin-bottom:6px">Client (sender)</div><svg viewBox="0 0 640 250" role="img" aria-label="Client state machine">
+<defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8e9bcc"/></marker></defs>
+<g stroke-width="1.6" fill="#16224a">
+<rect x="20" y="90" width="140" height="56" rx="12" stroke="#31d0ff"/><rect x="250" y="90" width="150" height="56" rx="12" stroke="#ffb84d"/>
+<rect x="490" y="90" width="130" height="56" rx="12" stroke="#3ddc97"/><rect x="490" y="190" width="130" height="44" rx="12" stroke="#3ddc97"/>
+<rect x="250" y="190" width="150" height="44" rx="12" stroke="#ff5d73"/></g>
+<g fill="none" stroke="#8e9bcc" stroke-width="1.6" marker-end="url(#a1)">
+<path d="M160 118H250"/><path d="M400 118H490"/><path d="M555 90V45H90V90"/><path d="M290 146V170H90V146"/><path d="M360 146V190"/><path d="M555 146V190"/></g>
+<g fill="#e9edff" font-size="14" font-weight="700" text-anchor="middle">
+<text x="90" y="114">SEND packet n</text><text x="325" y="114">WAIT for ACK n</text><text x="555" y="114">n = n + 1</text>
+<text x="555" y="217">DONE</text><text x="325" y="217">FAILED</text></g>
+<g fill="#8e9bcc" font-size="12" text-anchor="middle">
+<text x="90" y="132">start timer</text><text x="325" y="132">timer running</text><text x="555" y="132">next sequence</text>
+<text x="445" y="108">valid ACK n</text><text x="320" y="38">n &#8804; N : send next packet</text>
+<text x="190" y="190">timeout: resend packet n</text><text x="190" y="206">(up to 15 retries)</text></g>
+<g fill="#8e9bcc" font-size="12"><text x="368" y="172">retries &gt; 15</text><text x="563" y="172">n &gt; N</text></g></svg></div>
+      <div class="fsm"><div style="font-weight:800;color:var(--gr);margin-bottom:6px">Server (receiver)</div><svg viewBox="0 0 640 250" role="img" aria-label="Server state machine">
+<defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8e9bcc"/></marker></defs>
+<g stroke-width="1.6" fill="#16224a">
+<rect x="20" y="90" width="120" height="56" rx="12" stroke="#31d0ff"/><rect x="250" y="90" width="140" height="56" rx="12" stroke="#ffb84d"/>
+<rect x="500" y="90" width="120" height="56" rx="12" stroke="#3ddc97"/><rect x="250" y="190" width="140" height="44" rx="12" stroke="#ff5d73"/></g>
+<g fill="none" stroke="#8e9bcc" stroke-width="1.6" marker-end="url(#a2)">
+<path d="M140 118H250"/><path d="M390 118H500"/><path d="M285 90C285 42 355 42 355 90"/><path d="M320 146V190"/></g>
+<g fill="#e9edff" font-size="14" font-weight="700" text-anchor="middle">
+<text x="80" y="114">LISTEN</text><text x="320" y="114">RECEIVING</text><text x="560" y="114">FINISH</text><text x="320" y="217">DISCARD</text></g>
+<g fill="#8e9bcc" font-size="12" text-anchor="middle">
+<text x="80" y="132">UDP port 9000</text><text x="320" y="132">session open</text><text x="560" y="132">rebuild file</text>
+<text x="195" y="100">META</text><text x="195" y="114">ACK 0</text><text x="445" y="108">all N stored</text>
+<text x="320" y="34">valid DATA n: store (or ignore duplicate), send ACK n</text>
+<text x="560" y="168">verify SHA-256</text><text x="560" y="184">still re-ACKs duplicates</text></g>
+<g fill="#8e9bcc" font-size="12"><text x="328" y="172">CRC-32 mismatch: no ACK</text></g></svg></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>The algorithm (as implemented)</h3>
+    <div class="row2" style="margin-top:0">
+      <div><div style="font-weight:800;color:var(--cy);margin-bottom:6px">Sender</div>
+<pre class="code">send META (seq 0): name, size, packets, SHA-256
+for n = 1 .. N:
+    packet = [DATA | EOF if last | n | CRC-32 | chunk n]
+    attempts = 0
+    loop:
+        send(packet);  start timer (default 0.3 s)
+        wait for ACK:
+            valid ACK with seq == n  -> next chunk
+            corrupted or stale ACK   -> ignore, keep waiting
+        timer expired:
+            retransmissions += 1;  attempts += 1
+            if attempts &gt; 15: abort (FAILED)</pre></div>
+      <div><div style="font-weight:800;color:var(--gr);margin-bottom:6px">Receiver</div>
+<pre class="code">on every UDP datagram:
+    if CRC-32 does not match -> discard, send no ACK
+    if type == META:
+        new transfer id -> create session
+        send ACK 0   (also for a repeated META)
+    if type == DATA, seq n:
+        if n already stored -> duplicate: ignore the data
+        else                -> store chunk n
+        send ACK n   (always: the earlier ACK may be lost)
+        if all N chunks stored:
+            write file in order, verify SHA-256</pre></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="flex:1;min-width:260px"><h3 style="margin-bottom:6px">See the protocol running</h3>
+    <div style="color:var(--mut)">On the Live Transfer tab, the <b style="color:var(--text)">Packet Inspector</b> shows the real bytes of every packet while it travels: decoded header, CRC-32 verdict, lost / corrupted / retransmitted packets.</div></div>
+    <button class="mini" id="goLive" style="padding:10px 16px;font-size:13px">Open Live Transfer</button>
+  </div>
+</section>
+
+<!-- ============================ NS2 ============================ -->
+<section class="tab" id="t-ns2">
+ <div class="layout">
+  <div class="card">
+    <h3>NS2 scenario</h3>
+    <div class="note" id="nsNote" style="display:none"></div>
+    <div class="ctl"><label>Packet loss <b id="nLossV">20%</b></label><input type="range" id="nLoss" min="0" max="60" value="20"></div>
+    <div class="ctl"><label>Data packets <b id="nPktV">40</b></label><input type="range" id="nPkt" min="10" max="500" value="40"></div>
+    <div class="ctl"><label>Timeout <b id="nToV">0.30 s</b></label><input type="range" id="nTo" min="10" max="100" value="30"></div>
+    <div class="ctl"><label>Link bandwidth</label><select id="nBw"><option>1Mb</option><option>2Mb</option><option>10Mb</option></select></div>
+    <div class="ctl"><label>Link delay</label><select id="nDelay"><option>10ms</option><option>50ms</option><option>100ms</option></select></div>
+    <button class="btn" id="nRun">▶ Run NS2 simulation</button>
+    <div class="hint mono" id="nsFor" style="color:var(--cy)"></div>
+    <a id="nDl" class="btn ghost" style="display:none;text-align:center;text-decoration:none">⬇ Download trace file</a>
+    <div class="hint">Runs <span class="mono">ns ns2/rftp_sim.tcl</span>, then converts the NS2 trace file (<span class="mono">rftp_ns2.tr</span>) into packet events and replays them. Times shown are <b>simulated</b> time.</div>
+  </div>
+  <div>
+   <div class="card stage"><div id="nsPanel"></div></div>
+   <div class="card" style="margin-top:12px"><h3>NS2 trace file (first 40 lines) &nbsp;<span class="mono" style="text-transform:none;letter-spacing:0">event · time · from · to · type · size · … </span></h3>
+     <pre class="trace mono" id="trace">Run a simulation to see the raw trace.</pre>
+     <div class="hint"><b>r</b> = packet received, <b>d</b> = dropped by the ErrorModel. Size 40 B = ACK, 100 B = metadata, 1024 B = data.</div></div>
+  </div>
+ </div>
+</section>
+
+<!-- ============================ ANALYSIS ============================ -->
+<section class="tab" id="t-ana">
+  <div class="card">
+    <h3>NS2 vs Python sockets vs theory</h3>
+    <div class="charts"><canvas class="chart" id="ch1"></canvas><canvas class="chart" id="ch2"></canvas></div>
+    <div class="hint" style="margin-top:10px">Stop-and-wait with loss <i>p</i> on both the data and ACK path: success probability per attempt = (1-<i>p</i>)², so expected retransmissions = (N+1)·(1/(1-<i>p</i>)² − 1). Both implementations follow the theory.</div>
+    <div style="max-width:420px"><button class="btn ghost" id="reAna">↻ Re-run analysis (≈1–2 min)</button></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Results table</h3><table id="anaT"><thead></thead><tbody></tbody></table></div>
+</section>
+
+<!-- ============================ HOW IT WORKS ============================ -->
+<section class="tab" id="t-how">
+  <div class="card">
+   <h3>Architecture</h3>
+   <div class="flow">
+     <div class="box"><h4>💻 Client (sender)</h4><ol><li>Select file</li><li>Split into chunks</li><li>Build packet: seq + data + CRC-32</li><li>Send via UDP, start timer</li><li>ACK in time? next packet — else <b style="color:var(--am)">retransmit</b></li></ol></div>
+     <div class="arrow">⇄</div>
+     <div class="box" style="border-style:dashed"><h4>🌐 UDP network</h4><div style="color:var(--mut)">Best effort only. Packets can be <b style="color:var(--rd)">lost</b>, <b style="color:var(--rd)">corrupted</b> or <b style="color:var(--am)">delayed</b>. We simulate this with sockets (LossySocket) and with NS2 (ErrorModel).</div></div>
+     <div class="arrow">⇄</div>
+     <div class="box"><h4>🗄️ Server (receiver)</h4><ol><li>Receive UDP packet</li><li>Validate CRC-32 (bad → discard, no ACK)</li><li>Check seq: new → store, duplicate → ignore</li><li>Send ACK(seq) — also for duplicates</li><li>All packets in → rebuild file, verify SHA-256</li></ol></div>
+   </div>
+  </div>
+  <div class="row2">
+   <div class="card"><h3>Packet format (10-byte header)</h3>
+     <div class="pk"><div style="background:#a78bfa;flex:1">Type<small>1 B</small></div><div style="background:#ffb84d;flex:1">Flags<small>1 B · EOF</small></div><div style="background:#31d0ff;flex:3">Sequence number<small>4 B</small></div><div style="background:#3ddc97;flex:3">CRC-32<small>4 B</small></div><div style="background:#e9edff;flex:6">Data<small>≤ chunk size</small></div></div>
+     <div class="hint">Types: META (seq 0 – file name, size, packet count, SHA-256), DATA (seq 1…N), ACK.</div></div>
+   <div class="card"><h3>Reading the animation</h3>
+     <ul style="margin:0;padding-left:18px;line-height:1.9">
+      <li><span style="color:var(--cy)">■</span> cyan packet = DATA &nbsp; <span style="color:var(--am)">■</span> amber = retransmission &nbsp; <span style="color:var(--pu)">■</span> purple = metadata</li>
+      <li><span style="color:var(--gr)">■</span> green packet = ACK coming back</li>
+      <li><span style="color:var(--rd)">✕</span> burst in the network = packet lost</li>
+      <li>⏱ ring on the client = timer expired → retransmit</li>
+      <li>Red "CRC ✗" = corrupted packet discarded</li></ul></div>
+  </div>
+  <div class="card" style="margin-top:12px"><h3>Stop-and-wait ARQ – one round</h3>
+   <ol class="steps"><li>Client sends DATA(n) and starts the timer.</li><li>Server checks CRC; if OK and new, stores the data. A duplicate is ignored but still acknowledged (the earlier ACK may have been lost).</li><li>Server replies ACK(n).</li><li>ACK arrives → client sends DATA(n+1). Timer fires first → client resends DATA(n) (max 15 retries).</li><li>After the last packet, the server writes the file and the SHA-256 is compared with the original.</li></ol></div>
+</section>
+</main>
+
+<script>
+/* ============================== helpers ============================== */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+const C={cy:'#31d0ff',gr:'#3ddc97',am:'#ffb84d',rd:'#ff5d73',pu:'#a78bfa',mut:'#8e9bcc',tx:'#e9edff'};
+
+
+/* ============================== protocol helpers ============================== */
+const TYPES={1:'META',2:'DATA',3:'ACK'};
+const CRC_T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(bytes){let c=0xFFFFFFFF;for(const b of bytes)c=CRC_T[(c^b)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function hexBytes(h){return (h.match(/../g)||[]).map(x=>parseInt(x,16));}
+const h2=b=>b.toString(16).padStart(2,'0');
+const h8=n=>'0x'+n.toString(16).padStart(8,'0');
+function hexSpans(bytes,flip){return bytes.map((b,i)=>{let c=i===0?'t':i===1?'f':i<6?'s':i<10?'c':'';if(flip===i)c='x';return '<span class="hx '+c+'">'+h2(b)+'</span>';}).join('');}
+function u32(b,o){return ((b[o]<<24)|(b[o+1]<<16)|(b[o+2]<<8)|b[o+3])>>>0;}
+
+/* ============================== VISUALIZER (canvas) ============================== */
+class Visualizer{
+  constructor(canvas,opts){
+    this.c=canvas; this.g=canvas.getContext('2d'); this.o=opts;
+    this.queue=[]; this.cur=null; this.speed=10; this.parts=[]; this.floats=[]; this.flash={client:-9999,server:-9999};
+    this.prog={client:0,server:0}; this.clock=''; this.netLabel=''; this.names=opts.names||['CLIENT','SERVER'];
+    this.icons=opts.icons||['💻','🗄️']; this.running=false;
+    this.xL=100; this.xR=500; this.yD=100; this.yA=170; this.W=0; this.H=0;
+    this.resize(); addEventListener('resize',()=>this.resize());
+    requestAnimationFrame(t=>this.loop(t));
+  }
+  resize(){const r=this.c.getBoundingClientRect();if(!r.width)return;const d=devicePixelRatio||1;this.W=r.width;this.H=r.height;
+    this.c.width=r.width*d;this.c.height=r.height*d;this.g.setTransform(d,0,0,d,0,0);}
+  dur(ev){return Math.max(ev.kind==='timeout'?18:14,(ev.kind==='timeout'?520:720)/this.speed);}
+  play(events){this.queue=events.slice();this.cur=null;this.running=true;}
+  skip(){
+    const rest=this.queue.slice(); if(this.cur)rest.unshift(this.cur.ev);
+    this.queue=[];this.cur=null;this.parts=[];this.floats=[];
+    rest.forEach(e=>{if(e.t!==undefined)this.clock='sim time  t = '+e.t.toFixed(3)+' s';if(this.o.onStart)this.o.onStart(e);this.o.onEvent(e);}); if(this.running){this.running=false;this.o.onDone();}
+  }
+  loop(ts){
+    if(this.W){ this.layout(); this.update(ts); this.draw(ts); } else this.resize();
+    requestAnimationFrame(t=>this.loop(t));
+  }
+  layout(){this.xL=100;this.xR=this.W-100;this.yD=this.H/2-34;this.yA=this.H/2+34;}
+  update(ts){
+    if(!this.cur && this.queue.length){
+      const ev=this.queue.shift();
+      this.cur={ev,start:ts,dur:this.dur(ev),dropAt:.4+Math.random()*.22,burst:false,p:0};
+      if(this.o.onStart)this.o.onStart(ev);
+      if(ev.t!==undefined) this.clock='sim time  t = '+ev.t.toFixed(3)+' s';
+      if(ev.kind==='timeout') this.floats.push({x:this.xL,y:this.H/2-108,text:'TIMEOUT - retransmit',col:C.am,t0:ts,life:900});
+    }
+    if(this.cur){
+      const c=this.cur; c.p=Math.min(1,(ts-c.start)/c.dur); const ev=c.ev;
+      if(ev.status==='dropped' && !c.burst && c.p>=.7){c.burst=true;this.burst(ts,ev);}
+      if(c.p>=1){
+        const e=this.cur.ev; this.cur=null;
+        if(e.kind==='data' && e.status!=='dropped') this.flash.server=ts;
+        if(e.kind==='ack' && e.status==='delivered') this.flash.client=ts;
+        if(e.status==='corrupted') this.floats.push({x:e.kind==='data'?this.xR:this.xL,y:this.H/2-96,text:'CRC x discarded',col:C.rd,t0:ts,life:800});
+        this.o.onEvent(e);
+        if(!this.queue.length && this.running){this.running=false;this.o.onDone();}
+      }
+    }
+    this.parts=this.parts.filter(p=>ts-p.t0<p.life);
+    this.floats=this.floats.filter(p=>ts-p.t0<p.life);
+  }
+  burst(ts,ev){
+    const pos=this.pktPos(ev,this.cur.dropAt,this.cur.dropAt),x=pos[0],y=pos[1];
+    for(let i=0;i<16;i++){const a=Math.random()*6.283,s=40+Math.random()*90;
+      this.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t0:ts,life:600,col:Math.random()<.5?C.rd:C.am});}
+    this.floats.push({x,y:y-26,text:'LOST',col:C.rd,t0:ts,life:700});
+  }
+  pktPos(ev,p,dropAt){
+    const a=ev.kind==='data'?[this.xL+62,this.xR-62,this.yD]:[this.xR-62,this.xL+62,this.yA];
+    let f=p; if(ev.status==='dropped') f=Math.min(p/.7,1)*dropAt;
+    return [a[0]+(a[1]-a[0])*f,a[2]];
+  }
+  draw(ts){
+    const g=this.g,W=this.W,H=this.H; g.clearRect(0,0,W,H);
+    const xL=this.xL,xR=this.xR,cy=H/2;
+    g.fillStyle='rgba(120,140,220,.07)';for(let x=14;x<W;x+=26)for(let y=14;y<H;y+=26)g.fillRect(x,y,1.5,1.5);
+    const zx0=xL+(xR-xL)*.28,zx1=xL+(xR-xL)*.72;
+    g.save();g.setLineDash([6,6]);g.strokeStyle='rgba(49,208,255,.35)';g.fillStyle='rgba(49,208,255,.045)';
+    rr(g,zx0,cy-96,zx1-zx0,192,20);g.fill();g.stroke();g.restore();
+    g.fillStyle=C.mut;g.font='700 11px system-ui';g.textAlign='center';
+    g.fillText('UDP NETWORK',(zx0+zx1)/2,cy-76);
+    g.font='11px ui-monospace,Menlo,Consolas,monospace';g.fillText(this.netLabel,(zx0+zx1)/2,cy+88);
+    const lane=(y,col,dir,label)=>{g.strokeStyle=col;g.globalAlpha=.35;g.lineWidth=1.5;g.beginPath();g.moveTo(xL+62,y);g.lineTo(xR-62,y);g.stroke();
+      g.globalAlpha=.6;g.fillStyle=col;g.beginPath();const ex=dir>0?xR-62:xL+62;g.moveTo(ex,y);g.lineTo(ex-dir*9,y-5);g.lineTo(ex-dir*9,y+5);g.fill();
+      g.globalAlpha=.55;g.font='700 10px system-ui';g.textAlign='center';g.fillText(label,(xL+xR)/2,y-14);g.globalAlpha=1;};
+    lane(this.yD,C.cy,1,'DATA  >>');lane(this.yA,C.gr,-1,'<<  ACK');
+    this.node(xL,cy,0,ts);this.node(xR,cy,1,ts);
+    if(this.cur&&this.cur.ev.kind==='timeout'){
+      const p=this.cur.p;g.strokeStyle=C.am;g.lineWidth=4;g.beginPath();g.arc(xL,cy-96,15,-1.57,-1.57+6.283*p);g.stroke();
+      g.fillStyle=C.am;g.font='14px serif';g.textAlign='center';g.fillText('⏱',xL,cy-91);
+    }
+    if(this.cur){
+      const c=this.cur,ev=c.ev;
+      if(ev.kind==='data'||ev.kind==='ack'){
+        const pos=this.pktPos(ev,c.p,c.dropAt);let x=pos[0],y=pos[1];
+        let col=ev.kind==='ack'?C.gr:(ev.seq===0?C.pu:(ev.retrans?C.am:C.cy));
+        const label=ev.kind==='ack'?('ACK '+ev.seq+(ev.dup?' dup':'')):(ev.seq===0?'META':'#'+ev.seq);
+        let alpha=1;
+        if(ev.status==='dropped'&&c.p>.7){alpha=Math.max(0,1-(c.p-.7)/.3);col=C.rd;}
+        if(ev.status==='corrupted'&&c.p>c.dropAt){col=C.rd;y+=Math.sin(ts/20)*2;}
+        if(ev.kind==='data'&&ev.retrans){g.fillStyle='rgba(255,184,77,.18)';g.beginPath();g.arc(x,y,26,0,6.3);g.fill();}
+        this.pkt(x,y,label,col,alpha);
+      }
+    }
+    this.parts.forEach(p=>{const t=(ts-p.t0)/1000,a=1-(ts-p.t0)/p.life;g.globalAlpha=Math.max(0,a);g.fillStyle=p.col;
+      g.beginPath();g.arc(p.x+p.vx*t,p.y+p.vy*t+60*t*t,2.6,0,6.3);g.fill();});g.globalAlpha=1;
+    this.floats.forEach(f=>{const a=(ts-f.t0)/f.life;g.globalAlpha=Math.max(0,1-a);g.fillStyle=f.col;g.font='800 12px system-ui';g.textAlign='center';
+      g.fillText(f.text,f.x,f.y-a*16);});g.globalAlpha=1;
+    if(this.clock){g.fillStyle=C.mut;g.font='12px ui-monospace,Menlo,Consolas,monospace';g.textAlign='right';g.fillText(this.clock,W-14,22);}
+  }
+  pkt(x,y,label,col,alpha){
+    const g=this.g;g.globalAlpha=alpha;g.shadowColor=col;g.shadowBlur=14;g.fillStyle=col;rr(g,x-31,y-12,62,24,7);g.fill();g.shadowBlur=0;
+    g.fillStyle='#04101c';g.font='800 11.5px ui-monospace,Menlo,Consolas,monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(label,x,y+1);
+    g.textBaseline='alphabetic';g.globalAlpha=1;
+  }
+  node(x,cy,idx,ts){
+    const g=this.g,w=116,h=156,y=cy-h/2,key=idx?'server':'client';
+    const fl=Math.max(0,1-(ts-this.flash[key])/450);
+    g.save();g.shadowColor=idx?C.gr:C.cy;g.shadowBlur=6+fl*26;
+    g.fillStyle='#16224a';g.strokeStyle=fl>0?(idx?C.gr:C.cy):'#2e3f82';g.lineWidth=1.5+fl*1.5;rr(g,x-w/2,y,w,h,18);g.fill();g.stroke();g.restore();
+    g.textAlign='center';g.font='38px serif';g.fillStyle='#fff';g.fillText(this.icons[idx],x,y+54);
+    g.fillStyle=C.tx;g.font='800 12px system-ui';g.fillText(this.names[idx],x,y+82);
+    g.fillStyle=C.mut;g.font='10.5px system-ui';g.fillText(idx?'receives / ACKs':'sends / retransmits',x,y+98);
+    g.fillStyle='#0b1230';rr(g,x-40,y+116,80,10,5);g.fill();
+    g.fillStyle=idx?C.gr:C.cy;rr(g,x-40,y+116,Math.max(0,80*this.prog[key]),10,5);g.fill();
+    g.fillStyle=C.mut;g.font='10px ui-monospace,Menlo,Consolas,monospace';g.fillText(Math.round(this.prog[key]*100)+'%',x,y+144);
+  }
+}
+
+/* ============================== PANEL (canvas + grid + stats + log) ============================== */
+const PANEL_HTML=`
+<canvas class="viz"></canvas>
+<div class="stagebar">
+  <div class="prog"><i></i></div><div class="pct mono">0%</div>
+  <div class="spd">speed <input type="range" class="spdr" min="1" max="60" value="10"><b class="spdv mono">x10</b></div>
+  <button class="mini skip">skip &raquo;</button>
+</div>
+<div style="padding:0 16px 16px">
+  <div class="verdict"></div>
+  <div class="insp"><div class="insp-h"><b>Packet inspector</b><small>real bytes of the packet currently in flight (first 26 bytes shown)</small></div>
+    <div class="hexrow insp-hex"></div><div class="fchips insp-f"></div><div class="statb insp-s"></div></div>
+  <div class="tiles">
+    <div class="tile cy"><span>Data packets acked</span><b data-k="acked">0</b></div>
+    <div class="tile am"><span>Retransmissions</span><b data-k="retrans">0</b></div>
+    <div class="tile rd"><span>Lost in network</span><b data-k="lost">0</b></div>
+    <div class="tile rd"><span>Corrupted</span><b data-k="corrupt">0</b></div>
+    <div class="tile am"><span>Timeouts</span><b data-k="timeouts">0</b></div>
+    <div class="tile pu"><span>Duplicates (server)</span><b data-k="dups">0</b></div>
+    <div class="tile gr"><span data-k="timeLbl">Transfer time</span><b data-k="time">-</b></div>
+    <div class="tile gr"><span>Throughput</span><b data-k="speed">-</b></div>
+  </div>
+  <div class="row2">
+    <div><h3 style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mut)">Packet map</h3>
+      <div class="grid"></div>
+      <div class="legend"><span><i style="background:#1d2850"></i>pending</span><span><i style="background:var(--cy)"></i>sent</span><span><i style="background:var(--gr)"></i>acked</span><span><i style="background:var(--am)"></i>needed retransmit</span><span><i style="background:#52a8ff"></i>received (plain UDP)</span><span><i style="background:var(--rd)"></i>lost</span></div></div>
+    <div><h3 style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mut)">Event log</h3><div class="log mono"></div></div>
+  </div>
+</div>`;
+
+class Panel{
+  constructor(root,opts){
+    root.innerHTML=PANEL_HTML; this.r=root; this.q=s=>root.querySelector(s);
+    this.viz=new Visualizer(this.q('canvas'),{names:opts.names,icons:opts.icons,
+      onStart:e=>this.onStart(e),onEvent:e=>this.onEvent(e),onDone:()=>this.onDone()});
+    this.q('.spdr').oninput=e=>{this.viz.speed=+e.target.value;this.q('.spdv').textContent='x'+e.target.value;};
+    this.q('.skip').onclick=()=>this.viz.skip();
+    this.data=null; this.reset(1,true,'');
+  }
+  tile(k,v){const el=this.q('[data-k='+k+']');if(el)el.textContent=v;}
+  reset(total,reliable,netLabel){
+    this.total=total;this.reliable=reliable;this.cells=new Array(total).fill('');this.retx=new Set();
+    this.c={acked:0,retrans:0,lost:0,corrupt:0,timeouts:0,dups:0};
+    this.viz.prog={client:0,server:0};this.viz.netLabel=netLabel;this.viz.clock='';this.viz.parts=[];this.viz.floats=[];
+    ['acked','retrans','lost','corrupt','timeouts','dups'].forEach(k=>this.tile(k,0));
+    this.tile('time','-');this.tile('speed','-');
+    this.q('.verdict').className='verdict';this.q('.log').innerHTML='';
+    this.q('.insp').style.display='none';
+    const grid=this.q('.grid');grid.innerHTML='';this.dom=[];
+    for(let i=0;i<Math.min(total,700);i++){const d=document.createElement('div');d.className='cell';d.title=i===0?'META':'packet '+i;grid.appendChild(d);this.dom.push(d);}
+    this.q('.prog i').style.width='0%';this.q('.pct').textContent='0%';
+  }
+  load(data,netLabel){
+    const total=data.stats.packets+1; this.data=data;
+    this.reset(total,data.reliable,netLabel);
+    this.insp=data.source==='sockets';
+    this.viz.speed=+this.q('.spdr').value;
+    if(data.events.length>400){this.q('.spdr').value=40;this.viz.speed=40;this.q('.spdv').textContent='x40';}
+    this.viz.play(data.events);
+  }
+  setCell(i,cls){this.cells[i]=cls;if(this.dom[i])this.dom[i].className='cell '+cls;}
+  log(txt,cls){const l=this.q('.log'),d=document.createElement('div');d.className=cls;d.textContent=txt;l.appendChild(d);
+    while(l.childElementCount>250)l.removeChild(l.firstChild);l.scrollTop=l.scrollHeight;}
+  count(fn){let n=0;for(let i=1;i<this.cells.length;i++)if(fn(this.cells[i]))n++;return n;}
+  get nd(){return Math.max(1,this.total-1);}
+  onStart(ev){
+    if(!this.insp||!ev.hex)return;
+    const b=hexBytes(ev.hex),box=this.q('.insp');box.style.display='block';
+    const more=ev.len>b.length?'<span class="hx" style="opacity:.6">+'+(ev.len-b.length)+' B</span>':'';
+    this.q('.insp-hex').innerHTML=hexSpans(b)+more;
+    const type=TYPES[b[0]]||'?',eof=(b[1]&1)?' (EOF)':'';
+    this.q('.insp-f').innerHTML='<span class="fchip">type <b>'+type+'</b></span><span class="fchip">flags <b>0x'+h2(b[1])+eof+'</b></span><span class="fchip">seq <b>'+u32(b,2)+'</b></span><span class="fchip">CRC-32 <b>'+h8(u32(b,6))+'</b></span><span class="fchip">length <b>'+ev.len+' B</b></span>'+(ev.retrans?'<span class="fchip" style="border-color:var(--am);color:var(--am)"><b style="color:var(--am)">retransmission</b></span>':'')+(ev.dup?'<span class="fchip"><b>duplicate re-ACK</b></span>':'');
+    const st=this.q('.insp-s');
+    if(ev.status==='dropped'){st.className='statb insp-s bad';st.textContent='✕ Lost in the network - this packet never arrives';}
+    else if(ev.status==='corrupted'||!ev.crc_ok){st.className='statb insp-s bad';st.textContent='✕ CRC-32 mismatch (a byte was flipped in transit) - '+(ev.kind==='data'?'server discards it and sends no ACK':'client ignores it');}
+    else{st.className='statb insp-s ok';st.textContent='✓ CRC-32 valid - '+(ev.kind==='data'?'server accepts the packet':'client accepts the ACK');}
+  }
+  onEvent(e){
+    const c=this.c,n=e.seq===0?'META':'#'+e.seq,tt=e.t!==undefined?'['+e.t.toFixed(3)+'s] ':'';
+    if(e.kind==='data'){
+      if(e.retrans){c.retrans++;this.retx.add(e.seq);}
+      if(this.reliable) this.setCell(e.seq,this.retx.has(e.seq)?'wait':'sent');
+      else this.setCell(e.seq,e.status==='delivered'?'got':'lost');
+      if(e.status==='dropped'){c.lost++;this.log(tt+'x DATA '+n+' lost in the network','l');}
+      else if(e.status==='corrupted'){c.corrupt++;this.log(tt+'! DATA '+n+' corrupted -> server discards it (CRC-32 mismatch), no ACK','c');}
+      else this.log(tt+'-> DATA '+n+(e.retrans?' RE-sent':' sent'),e.retrans?'t':'d');
+      if(!this.reliable) this.viz.prog.server=this.count(x=>x==='got')/this.nd;
+    }else if(e.kind==='ack'){
+      if(e.dup)c.dups++;
+      if(e.status==='delivered'){this.setCell(e.seq,this.retx.has(e.seq)?'retx':'acked');this.log(tt+'<- ACK '+e.seq+' received'+(e.dup?' (duplicate re-ACK)':''),'a');}
+      else if(e.status==='dropped'){c.lost++;this.log(tt+'x ACK '+e.seq+' lost on the way back','l');}
+      else{c.corrupt++;this.log(tt+'! ACK '+e.seq+' corrupted -> client ignores it','c');}
+      this.viz.prog.server=this.count(x=>x!=='')/this.nd;
+    }else if(e.kind==='timeout'){
+      c.timeouts++;this.retx.add(e.seq);this.setCell(e.seq,'wait');this.log(tt+'timeout waiting for ACK '+e.seq+' -> retransmit','t');
+    }
+    c.acked=this.reliable?this.count(x=>x==='acked'||x==='retx'):this.count(x=>x==='got');
+    this.tile('acked',c.acked+' / '+this.nd);
+    ['retrans','lost','corrupt','timeouts','dups'].forEach(k=>this.tile(k,c[k]));
+    const f=c.acked/this.nd;this.viz.prog.client=f;
+    this.q('.prog i').style.width=(f*100).toFixed(0)+'%';this.q('.pct').textContent=(f*100).toFixed(0)+'%';
+  }
+  onDone(){
+    const d=this.data,s=d.stats,r=d.result,v=this.q('.verdict');
+    this.tile('retrans',s.retransmissions);
+    this.tile('time',s.transfer_time_s+' s');this.tile('speed',s.speed_KBps+' KB/s');
+    this.q('[data-k=timeLbl]').textContent=d.source==='ns2'?'Simulated time':'Real transfer time';
+    if(d.reliable){
+      if(r.intact){v.className='verdict ok';v.innerHTML='&#10004; File reconstructed - every packet acknowledged'+(d.source==='ns2'?'':' &middot; SHA-256 matches the original')+'<small>'+s.retransmissions+' retransmissions &middot; '+r.duplicates+' duplicates ignored</small>';}
+      else{v.className='verdict bad';v.innerHTML='&#10006; Transfer '+(String(s.status).startsWith('FAILED')?'aborted (retry limit reached)':'incomplete')+'<small>'+r.packets_missing+' packets missing</small>';}
+    }else{
+      if(r.intact){v.className='verdict ok';v.innerHTML='&#10004; Everything arrived - but plain UDP gives no guarantee<small>no ACKs, no retransmission</small>';}
+      else{v.className='verdict bad';v.innerHTML='&#10006; File DAMAGED - '+r.packets_missing+' of '+s.packets+' packets never arrived<small>plain UDP never notices or recovers</small>';
+        (r.missing_seqs||[]).forEach(i=>this.setCell(i,'lost'));}
+    }
+    const fr=(r.packets_received||0)/(r.packets_expected||1);this.viz.prog.client=this.viz.prog.server=fr;
+    this.q('.prog i').style.width=(fr*100).toFixed(0)+'%';this.q('.pct').textContent=(fr*100).toFixed(0)+'%';
+  }
+}
+
+/* ============================== LIVE TAB ============================== */
+const live=new Panel($('#livePanel'),{names:['CLIENT','SERVER']});
+let mode=true,file=null;
+const val=id=>+$(id).value;
+$('#mRel').onclick=()=>{mode=true;$('#mRel').classList.add('on');$('#mPlain').classList.remove('on');};
+$('#mPlain').onclick=()=>{mode=false;$('#mPlain').classList.add('on');$('#mRel').classList.remove('on');};
+[['loss','vLoss','%'],['corr','vCorr','%'],['delay','vDelay',' ms'],['to','vTo',' ms'],['sample','vSample',' KB']].forEach(([i,v,u])=>{
+  $('#'+i).oninput=()=>$('#'+v).textContent=$('#'+i).value+u;});
+const drop=$('#drop');drop.onclick=()=>$('#file').click();
+$('#file').onchange=e=>setFile(e.target.files[0]);
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>setFile(e.dataTransfer.files[0]));
+function setFile(f){file=f||null;$('#fileLbl').textContent=f?f.name+' · '+(f.size/1024).toFixed(1)+' KB':'no file – a random sample will be sent';$('#sampleCtl').style.display=f?'none':'block';}
+['run','cmp'].forEach(i=>$('#'+i)._orig=$('#'+i).innerHTML);
+function setBusy(b,btn,txt){['run','cmp'].forEach(i=>$('#'+i).disabled=b);if(btn)btn.innerHTML=b?'<span class="spinner"></span>'+txt:btn._orig;}
+
+async function transfer(reliable){
+  const q=new URLSearchParams({loss:val('#loss'),corrupt:val('#corr'),delay:val('#delay'),timeout:val('#to'),chunk:$('#chunk').value,
+    reliable:reliable?1:0,sample_kb:val('#sample')});
+  const res=await fetch('/api/run?'+q,{method:'POST',headers:{'X-Filename':file?file.name:'sample.bin'},body:file||new Blob([])});
+  const d=await res.json(); if(d.error)throw new Error(d.error); return d;
+}
+function netLabel(){return 'loss '+val('#loss')+'% · corrupt '+val('#corr')+'% · delay ≤'+val('#delay')+' ms';}
+function addHist(d,loss,corr){
+  const s=d.stats,r=d.result,tb=$('#hist tbody'),tr=document.createElement('tr');
+  tr.innerHTML='<td>'+(d.reliable?'RFTP':'Plain UDP')+'</td><td>'+loss+'%</td><td>'+corr+'%</td><td>'+r.packets_received+'/'+r.packets_expected+'</td><td>'+s.retransmissions+'</td><td>'+s.transfer_time_s+'s</td><td><span class="pill '+(r.intact?'y':'n')+'">'+(r.intact?'YES':'NO')+'</span></td>';
+  tb.prepend(tr);
+}
+$('#run').onclick=async()=>{
+  setBusy(true,$('#run'),'Transferring…');
+  try{const d=await transfer(mode);addHist(d,val('#loss'),val('#corr'));$('#cmpStrip').classList.remove('on');live.load(d,netLabel());}
+  catch(e){alert('Error: '+e.message);}
+  setBusy(false,$('#run'));
+};
+$('#cmp').onclick=async()=>{
+  setBusy(true,$('#cmp'),'Running both…');
+  try{
+    const p=await transfer(false); addHist(p,val('#loss'),val('#corr'));
+    const d=await transfer(true); addHist(d,val('#loss'),val('#corr'));
+    const pr=p.result,dr=d.result,st=$('#cmpStrip');
+    st.innerHTML='<div style="border-color:rgba(255,93,115,.5)"><span style="color:var(--mut)">PLAIN UDP</span><br><b style="color:var(--rd)">'+pr.packets_missing+' packets lost forever</b><br><span class="mono">'+pr.packets_received+'/'+pr.packets_expected+' received · file '+(pr.intact?'intact':'DAMAGED')+'</span></div>'+
+      '<div style="border-color:rgba(61,220,151,.5)"><span style="color:var(--mut)">RFTP (animating above)</span><br><b style="color:var(--gr)">'+dr.packets_missing+' packets lost</b><br><span class="mono">'+dr.packets_received+'/'+dr.packets_expected+' received · '+d.stats.retransmissions+' retransmissions · file '+(dr.intact?'intact ✔':'DAMAGED')+'</span></div>';
+    st.classList.add('on'); live.load(d,netLabel());
+  }catch(e){alert('Error: '+e.message);}
+  setBusy(false,$('#cmp'));
+};
+
+/* ============================== NS2 TAB ============================== */
+const ns=new Panel($('#nsPanel'),{names:['n0 · CLIENT','n1 · SERVER']});
+[['nLoss','nLossV','%'],['nPkt','nPktV','']].forEach(([i,v,u])=>$('#'+i).oninput=()=>{$('#'+v).textContent=$('#'+i).value+u;$('#nsFor').textContent='';nsChunk=1024;});
+$('#nTo').oninput=()=>$('#nToV').textContent=(val('#nTo')/100).toFixed(2)+' s';
+let nsChunk=1024;
+$('#nRun')._orig=$('#nRun').innerHTML;
+$('#nRun').onclick=async()=>{
+  const b=$('#nRun');b.disabled=true;b.innerHTML='<span class="spinner"></span>Running NS2…';
+  try{
+    const res=await fetch('/api/ns2',{method:'POST',body:JSON.stringify({loss:val('#nLoss'),packets:val('#nPkt'),timeout:val('#nTo')/100,bw:$('#nBw').value,delay:$('#nDelay').value,chunk:nsChunk})});
+    const d=await res.json();
+    if(d.available===false){$('#nsNote').style.display='block';$('#nsNote').textContent=d.hint;}
+    else if(d.error){alert(d.error);}
+    else{
+      if(d.recorded){$('#nsNote').style.display='block';$('#nsNote').textContent='NS2 is not installed on this machine, so this is a RECORDED run of the real NS2 simulation (loss 20%, 40 packets, 1 Mbps, 10 ms). Your slider settings are not applied.';}
+      $('#trace').textContent=d.trace_excerpt+'\n… ('+d.trace_lines+' lines total)';
+      const dl=$('#nDl');dl.style.display='block';dl.href=URL.createObjectURL(new Blob([d.trace_full],{type:'text/plain'}));dl.download='rftp_ns2.tr';
+      ns.load(d,d.params.bw+'ps · '+d.params.delay+' · loss '+(d.params.loss*100).toFixed(0)+'%');
+    }
+  }catch(e){alert('Error: '+e.message);}
+  b.disabled=false;b.innerHTML=b._orig;
+};
+
+$('#toNs').onclick=()=>{
+  const chunk=+$('#chunk').value, size=file?file.size:val('#sample')*1024, name=file?file.name:'random sample';
+  const want=Math.ceil(size/chunk), pk=Math.min(500,Math.max(10,want));
+  $('#nLoss').value=val('#loss');$('#nLossV').textContent=val('#loss')+'%';
+  $('#nPkt').value=pk;$('#nPktV').textContent=pk;nsChunk=chunk;
+  $('#nsFor').textContent='NS2 run for: '+name+' ('+(size/1024).toFixed(1)+' KB) = '+want+' packets of '+chunk+' B'+(want>pk?' - capped at '+pk:'')+', loss '+val('#loss')+'%';
+  $('nav button[data-t=ns2]').click();
+  setTimeout(()=>$('#nRun').click(),60);
+};
+
+/* ============================== ANALYSIS TAB ============================== */
+function lineChart(cv,xs,series,title,ylab){
+  const r=cv.getBoundingClientRect();if(!r.width)return;const d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;
+  const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);const W=r.width,H=r.height,L=52,R=14,T=38,B=44;
+  g.clearRect(0,0,W,H);g.fillStyle=C.tx;g.font='700 13px system-ui';g.textAlign='left';g.fillText(title,L,18);
+  const all=series.flatMap(s=>s.data.filter(v=>v!=null));const ymax=Math.max(1,...all)*1.08,xmax=Math.max(...xs)||1;
+  const X=x=>L+(W-L-R)*x/xmax,Y=y=>T+(H-T-B)*(1-y/ymax);
+  g.strokeStyle='rgba(120,140,220,.18)';g.fillStyle=C.mut;g.font='11px system-ui';g.lineWidth=1;
+  for(let i=0;i<=5;i++){const y=ymax*i/5;g.beginPath();g.moveTo(L,Y(y));g.lineTo(W-R,Y(y));g.stroke();g.textAlign='right';g.fillText(y>=10?y.toFixed(0):y.toFixed(1),L-6,Y(y)+4);}
+  xs.forEach(x=>{g.textAlign='center';g.fillText(x+'%',X(x),H-B+16);});
+  g.textAlign='center';g.fillText('packet loss',(L+W-R)/2,H-8);g.save();g.translate(13,(T+H-B)/2);g.rotate(-1.57);g.fillText(ylab,0,0);g.restore();
+  series.forEach(s=>{ if(!s.data.some(v=>v!=null))return;
+    g.strokeStyle=s.col;g.fillStyle=s.col;g.lineWidth=2.4;g.setLineDash(s.dash||[]);g.beginPath();
+    let st=false;s.data.forEach((v,i)=>{if(v==null)return;const x=X(xs[i]),y=Y(v);if(st)g.lineTo(x,y);else g.moveTo(x,y);st=true;});g.stroke();g.setLineDash([]);
+    if(!s.dash)s.data.forEach((v,i)=>{if(v==null)return;g.beginPath();g.arc(X(xs[i]),Y(v),3.6,0,6.3);g.fill();});});
+  let lx=L+8;series.forEach(s=>{if(!s.data.some(v=>v!=null))return;g.fillStyle=s.col;g.fillRect(lx,T-12,14,3);g.fillStyle=C.tx;g.font='11px system-ui';g.textAlign='left';g.fillText(s.name,lx+19,T-7);lx+=g.measureText(s.name).width+40;});
+}
+let anaRows=[];
+function drawAna(){
+  if(!anaRows.length)return;const xs=anaRows.map(r=>r.loss*100),g=k=>anaRows.map(r=>(r[k]!==undefined&&r[k]!=='')?r[k]:null);
+  lineChart($('#ch1'),xs,[{name:'Theory',col:'#e9edff',dash:[6,5],data:g('theory_retrans')},{name:'NS2 simulation',col:C.cy,data:g('ns2_retrans')},{name:'Python sockets',col:C.am,data:g('socket_retrans')}],'Retransmissions vs packet loss','retransmissions');
+  lineChart($('#ch2'),xs,[{name:'NS2 (1 Mbps, 10 ms, 0.3 s timeout)',col:C.rd,data:g('ns2_time_s')},{name:'Sockets (localhost)',col:C.gr,data:g('socket_time_s')}],'Transfer time vs packet loss','seconds');
+  $('#anaT thead').innerHTML='<tr><th>Loss</th><th>Theory retrans.</th><th>NS2 retrans.</th><th>Socket retrans.</th><th>NS2 time (s)</th><th>Socket time (s)</th><th>Socket file intact</th></tr>';
+  const ok=v=>String(v).toLowerCase()==='true';
+  $('#anaT tbody').innerHTML=anaRows.map(r=>'<tr><td>'+(r.loss*100).toFixed(0)+'%</td><td>'+r.theory_retrans+'</td><td>'+(r.ns2_retrans??'–')+'</td><td>'+(r.socket_retrans??'–')+'</td><td>'+(r.ns2_time_s??'–')+'</td><td>'+(r.socket_time_s??'–')+'</td><td><span class="pill '+(ok(r.socket_file_intact)?'y':'n')+'">'+(ok(r.socket_file_intact)?'YES':'NO')+'</span></td></tr>').join('');
+}
+async function loadAna(){try{const d=await (await fetch('/api/results')).json();anaRows=d.rows||[];drawAna();}catch(e){}}
+$('#reAna').onclick=async()=>{const b=$('#reAna');b._o=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></span>Running NS2 + sockets…';
+  try{const d=await (await fetch('/api/analysis',{method:'POST'})).json();if(d.error)alert(d.error);else{anaRows=d.rows;drawAna();}}catch(e){alert(e.message);}
+  b.disabled=false;b.innerHTML=b._o;};
+
+/* ============================== PROTOCOL TAB ============================== */
+let proto=null,protoIdx=0;
+async function loadProto(){
+  if(proto){return;}
+  try{proto=await (await fetch('/api/protocol')).json();}catch(e){return;}
+  const k=proto.constants;
+  const chips=[['Layer','Application layer over UDP'],['Reliability','Stop-and-wait ARQ'],['Error detection','CRC-32 + SHA-256'],['Header','10 bytes'],['Chunk size',k.chunk+' B'],['Timeout (default)',k.timeout_default+' s'],['Max retries',k.max_retries],['Default port','UDP '+k.default_port]];
+  $('#pChips').innerHTML=chips.map(c=>'<div class="chip"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>').join('');
+  $('#pSamples').innerHTML=proto.samples.map((s,i)=>'<button data-i="'+i+'" class="'+(s.valid?'':'badp')+'">'+s.name+'</button>').join('');
+  $$('#pSamples button').forEach(b=>b.onclick=()=>showSample(+b.dataset.i));
+  showSample(0);
+}
+function showSample(i){
+  protoIdx=i;const s=proto.samples[i],b=hexBytes(s.hex);
+  $$('#pSamples button').forEach((x,j)=>x.classList.toggle('on',j===i));
+  $('#pHex').innerHTML=hexSpans(b,s.flip);
+  const eof=(b[1]&1)?' (EOF)':'';
+  $('#pFields').innerHTML='<span class="fchip">type <b>'+TYPES[b[0]]+' ('+b[0]+')</b></span><span class="fchip">flags <b>0x'+h2(b[1])+eof+'</b></span><span class="fchip">seq <b>'+u32(b,2)+'</b></span><span class="fchip">CRC-32 stored <b>'+h8(u32(b,6))+'</b></span><span class="fchip">length <b>'+b.length+' B</b></span>'+(s.payload_text?'<span class="fchip">data <b class="mono">'+s.payload_text.replace(/</g,'&lt;').slice(0,60)+(s.payload_text.length>60?'…':'')+'</b></span>':'');
+  $('#pDesc').textContent=s.desc;
+  const body=b.slice(0,6).concat(b.slice(10)),calc=crc32(body),stored=u32(b,6),ok=calc===stored;
+  const box=$('#pCrc');box.className='crcbox '+(ok?'ok':'bad');
+  box.innerHTML='<div><b>CRC-32 check (computed in this browser)</b></div><div class="mono" style="margin:6px 0">computed over type + flags + seq + data = <b>'+h8(calc)+'</b><br>stored in the packet header &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <b>'+h8(stored)+'</b></div><div style="font-weight:800;color:'+(ok?'var(--gr)':'var(--rd)')+'">'+(ok?'✓ match - packet accepted':'✗ MISMATCH - packet discarded')+'</div><div style="margin-top:6px;color:var(--mut)">What the receiver does: '+s.effect+'</div>';
+}
+$('#goLive').onclick=()=>$('nav button[data-t=live]').click();
+
+/* ============================== tabs & boot ============================== */
+$$('#nav button').forEach(b=>b.onclick=()=>{
+  $$('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('.tab').forEach(t=>t.classList.toggle('on',t.id==='t-'+b.dataset.t));
+  if(b.dataset.t==='proto')loadProto();
+  setTimeout(()=>{live.viz.resize();ns.viz.resize();if(b.dataset.t==='ana')drawAna();},30);
+});
+addEventListener('resize',()=>{if($('#t-ana').classList.contains('on'))drawAna();});
+fetch('/api/info').then(r=>r.json()).then(i=>{
+  $('#bNs').textContent=i.ns2?'NS2 ready':'NS2 not found';$('#bNs').className='badge '+(i.ns2?'ok':'no');$('#bPy').textContent='Python '+i.python;
+  if(!i.ns2){$('#nsNote').style.display='block';$('#nsNote').textContent='NS2 is not installed on this machine (Ubuntu / WSL: sudo apt install ns2 nam). The Analysis tab still shows the saved NS2 results.';}
+});
+loadAna();
+</script>
+</body>
+</html>
